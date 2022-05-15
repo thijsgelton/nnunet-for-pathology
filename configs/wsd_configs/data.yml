@@ -1,0 +1,7 @@
+test: &id001
+  - wsa:
+      path: D:\Projects\nnunet-for-pathology\data\WSI\TCGA-21-5784-01Z-00-DX1.xml
+    wsi:
+      path: D:\Projects\nnunet-for-pathology\data\WSI\TCGA-21-5784-01Z-00-DX1.tif
+training: *id001
+validation: *id001

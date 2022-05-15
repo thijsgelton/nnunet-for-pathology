@@ -11,55 +11,61 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import List
 
-import os
-
-import numpy as np
 import pytorch_lightning as pl
 import torch
-import torch.nn as nn
-from apex.optimizers import FusedAdam, FusedSGD
-from data_loading.data_module import get_data_path, get_test_fnames
-from monai.inferers import sliding_window_inference
-from monai.networks.nets import DynUNet
+# from apex.optimizers import FusedAdam, FusedSGD # TODO: Look into Nvidia apex
 from monai.metrics import DiceMetric
+from monai.networks.nets import DynUNet
 from monai.optimizers.lr_scheduler import WarmupCosineSchedule
-from scipy.special import expit, softmax
-from skimage.transform import resize
-from utils.utils import get_config_file, print0, rank_zero
+from torch.optim import SGD, Adam
+from torchmetrics import MaxMetric
+
 from src.utils.losses import LossFactory
+from utils.utils import rank_zero, print0
 
 
 class NNUnetModule(pl.LightningModule):
-    def __init__(self, args):
+    def __init__(self, patch_size, spacings, exec_mode: str, deep_supervision: bool, deep_supr_num: int,
+                 momentum: float, weight_decay: float, use_res_block: bool, use_tta: bool,
+                 learning_rate: float, optimizer: str, use_focal_loss: bool, depth: int, num_classes: int,
+                 steps: int, use_cosine_scheduler: bool = False, filters: List[int] = None, in_channels: int = 3,
+                 min_fmap: int = 4):
+        """
+
+        Args:
+            patch_size:
+            spacings:
+            use_tta: Enable test time augmentation
+            in_channels: e.g. for RGB this will be 3
+            min_fmap: Minimal dimension of feature map in the bottleneck
+        """
         super(NNUnetModule, self).__init__()
-        self.patch_size = None
-        # This is fixed in the initial version of this pathology framework.
+        # Patch size is fixed in the initial version of this pathology framework.
         # Only depth is self-adapting. Both patch_size and pixel spacing can be used.
-        self.save_hyperparameters()
-        self.args = args
+        self.save_hyperparameters(logger=False)
         self.model = None
         self.build_nnunet()
         self.best_mean, self.best_epoch, self.test_idx = (0,) * 3
         self.start_benchmark = 0
-        self.test_imgs = []
-        self.learning_rate = self.hparams.learning_rate
-        self.loss = LossFactory(self.self.hparams.focal)
+        self.test_images = []
+        self.loss = LossFactory(self.hparams.use_focal_loss)  # TODO: Make this configurable, using factory method
         self.tta_flips = [[2], [3], [2, 3]]
-        self.dice = DiceMetric(self.n_class, )
+        self.dice = DiceMetric()
+        self.val_best_mean_dice = MaxMetric()
+
+    def on_train_start(self) -> None:
+        self.val_best_mean_dice.reset()
 
     def forward(self, img):
-        return torch.argmax(self.model(img), dim=1)
+        return torch.argmax(self.model(img), dim=1)  # TODO: see if this is the correct dimension the argmax is used on.
 
     def _forward(self, img):
-        if self.args.benchmark:
-            if self.args.dim == 2 and self.args.data2d_dim == 3:
-                img = layout_2d(img, None)
-            return self.model(img)
-        return self.tta_inference(img) if self.args.tta else self.do_inference(img)
+        return self.tta_inference(img) if self.hparams.use_tta else self.do_inference(img)
 
     def compute_loss(self, preds, label):
-        if self.args.deep_supervision:
+        if self.hparams.deep_supervision:
             loss, weights = 0.0, 0.0
             for i in range(preds.shape[1]):
                 loss += self.loss(preds[:, i], label) * 0.5 ** i
@@ -68,133 +74,86 @@ class NNUnetModule(pl.LightningModule):
         return self.loss(preds, label)
 
     def training_step(self, batch, batch_idx):
-        img, lbl = self.get_train_data(batch)
+        img, lbl = batch
         pred = self.model(img)
         loss = self.compute_loss(pred, lbl)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        img, lbl = batch["image"], batch["label"]
+        img, lbl = batch
         pred = self._forward(img)
-        loss = self.loss(pred, lbl)
-        if self.args.invert_resampled_y:
-            meta, lbl = batch["meta"][0].cpu().detach().numpy(), batch["orig_lbl"]
-            pred = nn.functional.interpolate(pred, size=tuple(meta[3]), mode="trilinear", align_corners=True)
-        self.dice.update(pred, lbl[:, 0], loss)
-
-    def test_step(self, batch, batch_idx):
-        if self.args.exec_mode == "evaluate":
-            return self.validation_step(batch, batch_idx)
-        img = batch["image"]
-        pred = self._forward(img).squeeze(0).cpu().detach().numpy()
-        if self.args.save_preds:
-            meta = batch["meta"][0].cpu().detach().numpy()
-            min_d, max_d = meta[0, 0], meta[1, 0]
-            min_h, max_h = meta[0, 1], meta[1, 1]
-            min_w, max_w = meta[0, 2], meta[1, 2]
-            n_class, original_shape, cropped_shape = pred.shape[0], meta[2], meta[3]
-            if not all(cropped_shape == pred.shape[1:]):
-                resized_pred = np.zeros((n_class, *cropped_shape))
-                for i in range(n_class):
-                    resized_pred[i] = resize(
-                        pred[i], cropped_shape, order=3, mode="edge", cval=0, clip=True, anti_aliasing=False
-                    )
-                pred = resized_pred
-            final_pred = np.zeros((n_class, *original_shape))
-            final_pred[:, min_d:max_d, min_h:max_h, min_w:max_w] = pred
-            if self.args.brats:
-                final_pred = expit(final_pred)
-            else:
-                final_pred = softmax(final_pred, axis=0)
-
-            self.save_mask(final_pred)
+        self.dice(y_pred=pred, y=lbl[:, 0])
 
     def get_unet_params(self):
-        config = get_config_file(self.args)
-        patch_size, spacings = config["patch_size"], config["spacings"]
-        strides, kernels, sizes = [], [], patch_size[:]
+        strides, kernels, sizes, spacings = [], [], self.hparams.patch_size[:], self.hparams.spacings
         while True:
-            spacing_ratio = [spacing / min(spacings) for spacing in spacings]
+            spacing_ratio = [spacing / min(self.hparams.spacings) for spacing in self.hparams.spacings]
             stride = [
-                2 if ratio <= 2 and size >= 2 * self.args.min_fmap else 1 for (ratio, size) in zip(spacing_ratio, sizes)
+                2 if ratio <= 2 and size >= 2 * self.hparams.min_fmap else 1 for (ratio, size) in
+                zip(spacing_ratio, sizes)
             ]
             kernel = [3 if ratio <= 2 else 1 for ratio in spacing_ratio]
             if all(s == 1 for s in stride):
                 break
             sizes = [i / j for i, j in zip(sizes, stride)]
-            spacings = [i * j for i, j in zip(spacings, stride)]
+            spacings = [i * j for i, j in zip(self.hparams.spacings, stride)]
             kernels.append(kernel)
             strides.append(stride)
-            if len(strides) == self.args.depth:
+            if len(strides) == self.hparams.depth:
                 break
         strides.insert(0, len(spacings) * [1])
         kernels.append(len(spacings) * [3])
-        return config["in_channels"], config["n_class"], kernels, strides, patch_size
+        return kernels, strides
 
     def build_nnunet(self):
-        in_channels, out_channels, kernels, strides, self.patch_size = self.get_unet_params()
-        self.n_class = out_channels - 1
+        kernels, strides = self.get_unet_params()
         self.model = DynUNet(
-            self.args.dim,
-            in_channels,
-            out_channels,
+            2,  # spatial_dims will always be 2 in the case of pathology
+            self.hparams.in_channels,
+            self.hparams.num_classes,
             kernels,
             strides,
             strides[1:],
-            filters=self.args.filters,
+            filters=self.hparams.filters,
             norm_name=("INSTANCE", {"affine": True}),
             act_name=("leakyrelu", {"inplace": True, "negative_slope": 0.01}),
-            deep_supervision=self.args.deep_supervision,
-            deep_supr_num=self.args.deep_supr_num,
-            res_block=self.args.res_block,
+            deep_supervision=self.hparams.deep_supervision,
+            deep_supr_num=self.hparams.deep_supr_num,
+            res_block=self.hparams.use_res_block,
             trans_bias=True,
         )
         print0(f"Filters: {self.model.filters},\nKernels: {kernels}\nStrides: {strides}")
 
     def do_inference(self, image):
-        if self.args.dim == 3:
-            return self.sliding_window_inference(image)
-        if self.args.data2d_dim == 2:
-            return self.model(image)
-        if self.args.exec_mode == "predict":
+        if self.hparams.exec_mode == "predict":
             return self.inference2d_test(image)
         return self.inference2d(image)
 
     def tta_inference(self, img):
         pred = self.do_inference(img)
         for flip_idx in self.tta_flips:
-            pred += flip(self.do_inference(flip(img, flip_idx)), flip_idx)
+            pred += torch.flip(self.do_inference(torch.flip(img, flip_idx)), flip_idx)
         pred /= len(self.tta_flips) + 1
         return pred
 
     def inference2d(self, image):
-        image = torch.transpose(image.squeeze(0), 0, 1)
-        preds = self.model(image)
-        preds = torch.transpose(preds, 0, 1).unsqueeze(0)
-        return preds
+        predictions = self.model(image)
+        predictions = torch.transpose(predictions, 0, 1).unsqueeze(0)
+        return predictions
 
     def inference2d_test(self, image):
-        preds_shape = (image.shape[0], self.n_class + 1, *image.shape[2:])
-        preds = torch.zeros(preds_shape, dtype=image.dtype, device=image.device)
+        predictions_shape = (image.shape[0], self.hparams.num_classes, *image.shape[2:])
+        predictions = torch.zeros(predictions_shape, dtype=image.dtype, device=image.device)
         for depth in range(image.shape[2]):
-            preds[:, :, depth] = self.sliding_window_inference(image[:, :, depth])
-        return preds
+            predictions[:, :, depth] = self.sliding_window_inference(image[:, :, depth])
+        return predictions
 
-    def sliding_window_inference(self, image):
-        return sliding_window_inference(
-            inputs=image,
-            roi_size=self.patch_size,
-            sw_batch_size=self.args.val_batch_size,
-            predictor=self.model,
-            overlap=self.args.overlap,
-            mode=self.args.blend,
-        )
-
-    def round(self, tensor):
+    @staticmethod
+    def round(tensor):
         return round(torch.mean(tensor).item(), 2)
 
     def validation_epoch_end(self, outputs):
-        dice, loss = self.dice.compute()
+        dice, loss = self.dice()
         self.dice.reset()
 
         # Update metrics
@@ -212,15 +171,7 @@ class NNUnetModule(pl.LightningModule):
         if self.n_class > 1:
             metrics.update({f"D{i + 1}": self.round(m) for i, m in enumerate(dice)})
 
-        self.dllogger.log_metrics(step=self.current_epoch, metrics=metrics)
-        self.dllogger.flush()
-        if self.args.tb_logs:
-            self.logger.log_metrics(metrics, step=self.current_epoch)
-        self.log("dice", metrics["Dice"])
-
-    def test_epoch_end(self, outputs):
-        if self.args.exec_mode == "evaluate":
-            self.eval_dice, _ = self.dice.compute()
+        self.log("val/dice", self.round(dice), on_epoch=True, prog_bar=True)
 
     @rank_zero
     def on_fit_end(self):
@@ -233,46 +184,19 @@ class NNUnetModule(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = {
-            "sgd": FusedSGD(self.parameters(), lr=self.learning_rate, momentum=self.args.momentum),
-            "adam": FusedAdam(self.parameters(), lr=self.learning_rate, weight_decay=self.args.weight_decay),
-        }[self.args.optimizer.lower()]
+            "sgd": SGD(self.parameters(), lr=self.hparams.learning_rate, momentum=self.hparams.momentum),
+            "adam": Adam(self.parameters(), lr=self.hparams.learning_rate, weight_decay=self.hparams.weight_decay),
+        }[self.hparams.optimizer.lower()]
 
-        if self.args.scheduler:
+        if self.hparams.use_cosine_scheduler:
             scheduler = {
                 "scheduler": WarmupCosineSchedule(
                     optimizer=optimizer,
                     warmup_steps=250,
-                    t_total=self.args.epochs * len(self.trainer.datamodule.train_dataloader()),
+                    t_total=self.trainer.max_epochs * len(self.hparams.steps),
                 ),
                 "interval": "step",
                 "frequency": 1,
             }
             return {"optimizer": optimizer, "monitor": "val_loss", "lr_scheduler": scheduler}
         return {"optimizer": optimizer, "monitor": "val_loss"}
-
-    def save_mask(self, pred):
-        if self.test_idx == 0:
-            data_path = get_data_path(self.args)
-            self.test_imgs, _ = get_test_fnames(self.args, data_path)
-        fname = os.path.basename(self.test_imgs[self.test_idx]).replace("_x", "")
-        np.save(os.path.join(self.save_dir, fname), pred, allow_pickle=False)
-        self.test_idx += 1
-
-    def get_train_data(self, batch):
-        img, lbl = batch["image"], batch["label"]
-        if self.args.dim == 2 and self.args.data2d_dim == 3:
-            img, lbl = layout_2d(img, lbl)
-        return img, lbl
-
-
-def layout_2d(img, lbl):
-    batch_size, depth, channels, height, weight = img.shape
-    img = torch.reshape(img, (batch_size * depth, channels, height, weight))
-    if lbl is not None:
-        lbl = torch.reshape(lbl, (batch_size * depth, 1, height, weight))
-        return img, lbl
-    return img
-
-
-def flip(data, axis):
-    return torch.flip(data, dims=axis)

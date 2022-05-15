@@ -1,3 +1,5 @@
+import numpy as np
+import torch
 from torch.utils.data import Dataset
 from wholeslidedata.iterators import create_batch_iterator
 
@@ -27,6 +29,8 @@ class WsiDataset(Dataset):
     def __len__(self):
         return self.steps
 
-    def __get__(self, index):
+    def __getitem__(self, index):
         x_batch, y_batch = next(self.iterator)
-        return x_batch, y_batch
+        x_batch = x_batch.transpose(0, 3, 1, 2).astype('float32')
+        y_batch = y_batch.transpose(0, 3, 1, 2).astype('int8')
+        return torch.from_numpy(x_batch), torch.from_numpy(y_batch)

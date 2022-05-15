@@ -1,11 +1,14 @@
 _target_: src.datamodules.wsi_datamodule.WsiDataModule
 
-num_workers: 0 # Be aware that WholeSlideData also uses multiple cores of the CPU to preprocess the data (see user_train_config).
+steps_per_epoch: 1000
+num_classes: 3
+num_workers: 6
 pin_memory: False
+context: spawn
 
-user_train_config: ${original_work_dir}/configs/wsd_configs/user_train_config.yaml
+user_train_config: ${original_work_dir}/configs/wsd_configs/user_config.yml
 # Temporary solution for using WholeSlideData. This should be ported to Hydra.
-user_val_config: ${original_work_dir}/configs/wsd_configs/user_val_config.yaml
+user_val_config: ${original_work_dir}/configs/wsd_configs/user_config.yml
 # Temporary solution for using WholeSlideData. This should be ported to Hydra.
-user_test_config: ${original_work_dir}/configs/wsd_configs/user_test_config.yaml
+user_test_config: ${original_work_dir}/configs/wsd_configs/user_config.yml
 # Temporary solution for using WholeSlideData. This should be ported to Hydra.

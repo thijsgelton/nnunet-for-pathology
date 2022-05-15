@@ -146,3 +146,5 @@ logs/
 wandb/
 .env
 .autoenv
+/tests/unit/datamodules/test_files/TCGA-21-5784-01Z-00-DX1.xml
+**/*.tif
