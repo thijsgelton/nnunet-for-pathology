@@ -1,6 +1,9 @@
 import os
 from typing import List, Optional
+import warnings
 
+# or to ignore all warnings that could be false positives
+from pytorch_lightning.utilities.warnings import PossibleUserWarning
 import hydra
 from omegaconf import DictConfig
 from pytorch_lightning import (
@@ -15,6 +18,7 @@ from pytorch_lightning.loggers import LightningLoggerBase
 from src import utils
 
 log = utils.get_logger(__name__)
+warnings.filterwarnings("ignore", category=PossibleUserWarning)
 
 
 def train(config: DictConfig) -> Optional[float]:

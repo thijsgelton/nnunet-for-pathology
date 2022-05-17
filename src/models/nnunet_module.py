@@ -23,7 +23,8 @@ from torch.optim import SGD, Adam
 from torchmetrics import MaxMetric
 
 from src.utils.losses import LossFactory
-from utils.utils import rank_zero, print0
+from utils.metrics import Dice
+from utils.utils import print0
 
 
 class NNUnetModule(pl.LightningModule):
@@ -52,11 +53,12 @@ class NNUnetModule(pl.LightningModule):
         self.test_images = []
         self.loss = LossFactory(self.hparams.use_focal_loss)  # TODO: Make this configurable, using factory method
         self.tta_flips = [[2], [3], [2, 3]]
-        self.dice = DiceMetric()
-        self.val_best_mean_dice = MaxMetric()
+        self.train_dice = Dice(self.hparams.num_classes)  # TODO: make this configurable
+        self.val_dice = Dice(self.hparams.num_classes)  # TODO: make this configurable
+        self.val_best_dice = MaxMetric()  # TODO: make this configurable
 
     def on_train_start(self) -> None:
-        self.val_best_mean_dice.reset()
+        self.val_best_dice.reset()
 
     def forward(self, img):
         return torch.argmax(self.model(img), dim=1)  # TODO: see if this is the correct dimension the argmax is used on.
@@ -65,7 +67,7 @@ class NNUnetModule(pl.LightningModule):
         return self.tta_inference(img) if self.hparams.use_tta else self.do_inference(img)
 
     def compute_loss(self, preds, label):
-        if self.hparams.deep_supervision:
+        if self.model.training and self.hparams.deep_supervision:
             loss, weights = 0.0, 0.0
             for i in range(preds.shape[1]):
                 loss += self.loss(preds[:, i], label) * 0.5 ** i
@@ -73,16 +75,48 @@ class NNUnetModule(pl.LightningModule):
             return loss / weights
         return self.loss(preds, label)
 
+    def step(self, batch):
+        patches, targets = batch
+        predictions = self.model(patches)
+        loss = self.compute_loss(predictions, targets)
+        return loss, predictions, targets
+
     def training_step(self, batch, batch_idx):
-        img, lbl = batch
-        pred = self.model(img)
-        loss = self.compute_loss(pred, lbl)
-        return loss
+        loss, predictions, targets = self.step(batch)
+        predictions = predictions[:, 0]  # Full-scale output, no deep supervision head.
+        self.log("train/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
+        return {"loss": loss, "predictions": predictions, "targets": targets}
+
+    def training_step_end(self, outputs):
+        loss, predictions, targets = outputs.values()
+        train_dice = self.train_dice(predictions, targets)
+        self.log("train/dice", train_dice, on_step=False, on_epoch=True, prog_bar=True)
 
     def validation_step(self, batch, batch_idx):
-        img, lbl = batch
-        pred = self._forward(img)
-        self.dice(y_pred=pred, y=lbl[:, 0])
+        loss, predictions, targets = self.step(batch)
+
+        self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        return {"loss": loss, "preds": predictions, "targets": targets}
+
+    def validation_step_end(self, outputs):
+        loss, predictions, targets = outputs.values()
+        # log val metrics
+        val_dice = self.val_dice(predictions, targets)
+        self.log("val/dice", val_dice, on_step=False, on_epoch=True, prog_bar=True)
+
+    def validation_epoch_end(self, outputs):
+        val_dice = self.val_dice.compute()  # get val dice from current epoch
+        val_best_dice = self.val_best_dice(val_dice)
+
+        if self.hparams.num_classes > 1:
+            for i in range(self.hparams.num_classes):
+                self.log(f"val/dice_class_{i}", val_dice[i], on_epoch=True, prog_bar=False)
+        self.log("val/dice_best", val_best_dice, on_epoch=True, prog_bar=True)
+        self.log("val/dice", torch.mean(val_dice), on_epoch=True, prog_bar=True)
+        self.val_dice.reset()
+
+    def on_train_epoch_end(self):
+        self.train_dice.reset()
 
     def get_unet_params(self):
         strides, kernels, sizes, spacings = [], [], self.hparams.patch_size[:], self.hparams.spacings
@@ -138,49 +172,23 @@ class NNUnetModule(pl.LightningModule):
 
     def inference2d(self, image):
         predictions = self.model(image)
-        predictions = torch.transpose(predictions, 0, 1).unsqueeze(0)
         return predictions
 
     def inference2d_test(self, image):
+        """
+        TODO: There should be a WSI inference part. This sliding_window approach won't be necessary and also takes
+              too much time.
+        Args:
+            image:
+
+        Returns:
+
+        """
         predictions_shape = (image.shape[0], self.hparams.num_classes, *image.shape[2:])
         predictions = torch.zeros(predictions_shape, dtype=image.dtype, device=image.device)
         for depth in range(image.shape[2]):
             predictions[:, :, depth] = self.sliding_window_inference(image[:, :, depth])
         return predictions
-
-    @staticmethod
-    def round(tensor):
-        return round(torch.mean(tensor).item(), 2)
-
-    def validation_epoch_end(self, outputs):
-        dice, loss = self.dice()
-        self.dice.reset()
-
-        # Update metrics
-        dice_mean = torch.mean(dice)
-        if dice_mean >= self.best_mean:
-            self.best_mean = dice_mean
-            self.best_mean_dice = dice[:]
-            self.best_epoch = self.current_epoch
-
-        metrics = {}
-        metrics["Dice"] = self.round(dice)
-        metrics["Loss"] = self.round(loss)
-        metrics["Max Dice"] = self.round(self.best_mean_dice)
-        metrics["Best epoch"] = self.best_epoch
-        if self.n_class > 1:
-            metrics.update({f"D{i + 1}": self.round(m) for i, m in enumerate(dice)})
-
-        self.log("val/dice", self.round(dice), on_epoch=True, prog_bar=True)
-
-    @rank_zero
-    def on_fit_end(self):
-        if not self.args.benchmark:
-            metrics = {}
-            metrics["dice_score"] = round(self.best_mean.item(), 2)
-            metrics["Epoch"] = self.best_epoch
-            self.dllogger.log_metrics(step=(), metrics=metrics)
-            self.dllogger.flush()
 
     def configure_optimizers(self):
         optimizer = {
@@ -193,7 +201,7 @@ class NNUnetModule(pl.LightningModule):
                 "scheduler": WarmupCosineSchedule(
                     optimizer=optimizer,
                     warmup_steps=250,
-                    t_total=self.trainer.max_epochs * len(self.hparams.steps),
+                    t_total=self.trainer.max_epochs * self.hparams.steps,
                 ),
                 "interval": "step",
                 "frequency": 1,

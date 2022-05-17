@@ -17,13 +17,13 @@ wholeslidedata:
 
     point_sampler:
       attribute: RandomPointSampler
-      buffer: -142
+      buffer: -256
 
     batch_shape:
-      batch_size: 1
-      shape: [ 64, 64,3 ]
+      batch_size: 2
+      shape: [ 512, 512, 3 ]
       spacing: [ 0.5 ]
-      y_shape: [ 64, 64, 3 ]
+      y_shape: [ 512, 512, 3 ]
 
     batch_callbacks:
       - module: wholeslidedata.accessories.albumentations.callbacks

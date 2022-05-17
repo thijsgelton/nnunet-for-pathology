@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader, Dataset
 from src.datamodules.datasets.wsi_dataset import WsiDataset
 
 
-class WsiDataModule(LightningDataModule):
+class WholeSlideDataModule(LightningDataModule):
     """
     Encapsulating module that uses the WsiDataset. This in turn uses WholeSlideData as a generator for patches and
     this uses augmentations (if specified) on every batch.
@@ -19,6 +19,7 @@ class WsiDataModule(LightningDataModule):
             user_test_config,
             num_classes,
             steps_per_epoch: int = 1000,
+            val_steps_per_epoch: int = 200,
             num_workers: int = 0,
             pin_memory: bool = False,
             context: str = "fork",
@@ -60,6 +61,7 @@ class WsiDataModule(LightningDataModule):
             self.data_train = WsiDataset(**dataset_kwargs)
 
             dataset_kwargs['exec_mode'] = "validation"
+            dataset_kwargs['steps'] = self.hparams.val_steps_per_epoch
             dataset_kwargs['user_config'] = self.hparams.user_val_config
             self.data_val = WsiDataset(**dataset_kwargs)
 
@@ -67,12 +69,14 @@ class WsiDataModule(LightningDataModule):
         return DataLoader(
             dataset=self.data_train,
             collate_fn=lambda x: x[0],  # WSD provides batches and DataLoader wraps it. Therefore, unpacking is needed.
-            pin_memory=self.hparams.pin_memory
+            pin_memory=self.hparams.pin_memory,
+            num_workers=0
         )
 
     def val_dataloader(self):
         return DataLoader(
             dataset=self.data_val,
             collate_fn=lambda x: x[0],
-            pin_memory=self.hparams.pin_memory
+            pin_memory=self.hparams.pin_memory,
+            num_workers=0
         )

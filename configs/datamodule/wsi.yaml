@@ -1,9 +1,10 @@
-_target_: src.datamodules.wsi_datamodule.WsiDataModule
+_target_: src.datamodules.wsi_datamodule.WholeSlideDataModule
 
 steps_per_epoch: 1000
+val_steps_per_epoch: 200
 num_classes: 3
-num_workers: 6
-pin_memory: False
+num_workers: 3
+pin_memory: True
 context: spawn
 
 user_train_config: ${original_work_dir}/configs/wsd_configs/user_config.yml

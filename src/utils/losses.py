@@ -7,10 +7,10 @@ class LossFactory(nn.Module):
         super(LossFactory, self).__init__()
         if focal:
             self.loss_fn = DiceFocalLoss(
-                include_background=False, softmax=True, to_onehot_y=False, batch=True, gamma=2.0
+                include_background=True, softmax=True, to_onehot_y=False, batch=True, gamma=2.0
             )
         else:
-            self.loss_fn = DiceCELoss(include_background=False, softmax=True, to_onehot_y=False, batch=True)
+            self.loss_fn = DiceCELoss(include_background=True, softmax=True, to_onehot_y=False, batch=True)
 
     def forward(self, y_pred, y_true):
         return self.loss_fn(y_pred, y_true)

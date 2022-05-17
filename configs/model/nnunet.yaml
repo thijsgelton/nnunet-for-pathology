@@ -1,21 +1,22 @@
 _target_: src.models.nnunet_module.NNUnetModule
 
-exec_mode:
+exec_mode: "training"
 
 learning_rate: 0.001
 weight_decay: 0.0005
 momentum: 0.99
 
 spacings: [ 0.5, 0.5 ] # TODO: Should be set only once and used in both datamodule and model module.
-patch_size: [ 64, 64 ] # TODO: Should be set only once and used in both datamodule and model module.
+patch_size: [ 512, 512 ] # TODO: Should be set only once and used in both datamodule and model module.
 in_channels: 3   # TODO: Should be set only once and used in both datamodule and model module.
 num_classes: ${datamodule.num_classes}
 steps: ${datamodule.steps_per_epoch}
 
-depth: 2
-deep_supervision: False
-deep_supr_num: 1
+depth: 7
+deep_supervision: True
+deep_supr_num: 6
 use_tta: True
 use_res_block: False
 optimizer: sgd
 use_focal_loss: False
+use_cosine_scheduler: True

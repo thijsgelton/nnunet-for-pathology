@@ -6,7 +6,7 @@ import pytest
 import torch
 import yaml
 
-from datamodules.wsi_datamodule import WsiDataModule
+from datamodules.wsi_datamodule import WholeSlideDataModule
 from tests.helpers.module_available import _IS_WINDOWS
 
 _WSI_DOWNLOAD_LINK = 'https://drive.google.com/uc?id=1noRtbC5fxBlnO7YnvktjIDhFI61PdOSB'
@@ -50,7 +50,7 @@ def test_wsi_datamodule(download):
     with open("test_files/user_config.yml", "r") as fp_config:
         wsd_config = yaml.load(fp_config, yaml.FullLoader)
 
-    datamodule = WsiDataModule(
+    datamodule = WholeSlideDataModule(
         user_train_config="test_files/user_config.yml",
         user_val_config="test_files/user_config.yml",
         user_test_config="test_files/user_config.yml",
