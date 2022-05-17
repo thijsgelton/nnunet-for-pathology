@@ -3,6 +3,14 @@ FROM doduo1.umcn.nl/uokbaseimage/diag:tf2.8-pt1.10-v1
 ENV CONDA_ENV_NAME=nnunet_pathology
 ENV PYTHON_VERSION=3.8
 
+# Fix: public key error for apt update
+RUN rm /etc/apt/sources.list.d/cuda.list
+RUN rm /etc/apt/sources.list.d/nvidia-ml.list
+RUN apt-key del 7fa2af80
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64/7fa2af80.pub
+
+
 # Basic setup
 RUN apt update
 RUN apt install -y bash \
