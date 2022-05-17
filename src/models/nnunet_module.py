@@ -16,15 +16,14 @@ from typing import List
 import pytorch_lightning as pl
 import torch
 # from apex.optimizers import FusedAdam, FusedSGD # TODO: Look into Nvidia apex
-from monai.metrics import DiceMetric
 from monai.networks.nets import DynUNet
 from monai.optimizers.lr_scheduler import WarmupCosineSchedule
 from torch.optim import SGD, Adam
 from torchmetrics import MaxMetric
 
 from src.utils.losses import LossFactory
-from utils.metrics import Dice
-from utils.utils import print0
+from src.utils.metrics import Dice
+from src.utils.utils import print0
 
 
 class NNUnetModule(pl.LightningModule):

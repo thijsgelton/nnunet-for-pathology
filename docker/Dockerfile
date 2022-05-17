@@ -21,9 +21,11 @@ RUN apt install -y bash \
     wget \
     && rm -rf /var/lib/apt/lists
 
+# Copy source
+COPY . /home/user/code/nnunet_pathology
 
 # Set working directory
-WORKDIR /home/user/code
+WORKDIR /home/user/code/nnunet_pathology
 
 
 # Install Miniconda and create main env
@@ -43,9 +45,13 @@ SHELL ["/bin/bash", "-c"]
 COPY requirements.txt ./
 RUN source activate ${CONDA_ENV_NAME} \
     && pip install --no-cache-dir -r requirements.txt \
-    && rm requirements.txt
+    && rm requirements.txt \
+    && pip install -e .
 
 
-# Set ${CONDA_ENV_NAME} to default virutal environment
-RUN echo "source activate ${CONDA_ENV_NAME}" >> ~/.bashrc
+COPY docker/.bash_aliases /root/
 
+
+#### Configure entrypoint.
+COPY docker/run.sh /root/
+ENTRYPOINT ["/bin/bash", "/root/run.sh"]
