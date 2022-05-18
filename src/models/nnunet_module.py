@@ -30,8 +30,8 @@ class NNUnetModule(pl.LightningModule):
     def __init__(self, patch_size, spacings, exec_mode: str, deep_supervision: bool, deep_supr_num: int,
                  momentum: float, weight_decay: float, use_res_block: bool, use_tta: bool,
                  learning_rate: float, optimizer: str, use_focal_loss: bool, depth: int, num_classes: int,
-                 steps: int, use_cosine_scheduler: bool = False, filters: List[int] = None, in_channels: int = 3,
-                 min_fmap: int = 4):
+                 steps: int, ignore_first_channel: bool, use_cosine_scheduler: bool = False, filters: List[int] = None,
+                 in_channels: int = 3, min_fmap: int = 4):
         """
 
         Args:
@@ -52,9 +52,12 @@ class NNUnetModule(pl.LightningModule):
         self.test_images = []
         self.loss = LossFactory(self.hparams.use_focal_loss)  # TODO: Make this configurable, using factory method
         self.tta_flips = [[2], [3], [2, 3]]
-        self.train_dice = Dice(self.hparams.num_classes)  # TODO: make this configurable
-        self.val_dice = Dice(self.hparams.num_classes)  # TODO: make this configurable
-        self.val_best_dice = MaxMetric()  # TODO: make this configurable
+        self.train_dice = Dice(self.hparams.num_classes, ignore_first_channel=self.hparams.ignore_first_channel)
+        # TODO: make this configurable
+        self.val_dice = Dice(self.hparams.num_classes, ignore_first_channel=self.hparams.ignore_first_channel)
+        # TODO: make this configurable
+        self.val_best_dice = MaxMetric()
+        # TODO: make this configurable
 
     def on_train_start(self) -> None:
         self.val_best_dice.reset()
