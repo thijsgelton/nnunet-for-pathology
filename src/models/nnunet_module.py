@@ -50,7 +50,9 @@ class NNUnetModule(pl.LightningModule):
         self.best_mean, self.best_epoch, self.test_idx = (0,) * 3
         self.start_benchmark = 0
         self.test_images = []
-        self.loss = LossFactory(self.hparams.use_focal_loss)  # TODO: Make this configurable, using factory method
+        self.loss = LossFactory(include_background=self.hparams.ignore_first_channel,
+                                focal=self.hparams.use_focal_loss)
+        # TODO: Make what loss configurable, using factory method (not only CE or focal).
         self.tta_flips = [[2], [3], [2, 3]]
         self.train_dice = Dice(self.hparams.num_classes, ignore_first_channel=self.hparams.ignore_first_channel)
         # TODO: make this configurable
