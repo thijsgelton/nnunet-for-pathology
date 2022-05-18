@@ -14,7 +14,7 @@ echo "PYTHONUNBUFFERED=1" >> /etc/environment
 
 # Switch to codebase (defaults to home directory)
 if [ -z "$CODEBASE" ] || ! cd "$CODEBASE"; then
-  cd /home/user
+  cd /home/user/code/nnunet_pathology
 fi
 printf "Working directory: %s\n" "$(pwd)"
 
