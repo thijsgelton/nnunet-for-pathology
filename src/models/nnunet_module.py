@@ -113,7 +113,7 @@ class NNUnetModule(pl.LightningModule):
         val_best_dice = self.val_best_dice(val_dice)
 
         if self.hparams.num_classes > 1:
-            for i in range(self.hparams.num_classes):
+            for i in range(self.hparams.num_classes - 1 if self.hparams.ignore_first_channel else 0):
                 self.log(f"val/dice_class_{i}", val_dice[i], on_epoch=True, prog_bar=False)
         self.log("val/dice_best", val_best_dice, on_epoch=True, prog_bar=True)
         self.log("val/dice", torch.mean(val_dice), on_epoch=True, prog_bar=True)

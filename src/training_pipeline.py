@@ -81,7 +81,7 @@ def train(config: DictConfig) -> Optional[float]:
         datamodule=datamodule,
         trainer=trainer,
         callbacks=callbacks,
-        logger=logger,
+        logger=logger
     )
 
     # Train the model
