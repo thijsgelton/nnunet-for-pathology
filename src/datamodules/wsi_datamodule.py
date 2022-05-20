@@ -69,8 +69,7 @@ class WholeSlideDataModule(LightningDataModule):
 
     def transfer_batch_to_device(self, batch, device, dataloader_idx):
         if self.hparams.return_info:
-            batch[0] = batch[0].to(device)
-            batch[1] = batch[1].to(device)
+            batch = tuple([batch[0].to(device), batch[1].to(device), batch[2]])
         else:
             batch = super().transfer_batch_to_device(batch, device, dataloader_idx)
         return batch
