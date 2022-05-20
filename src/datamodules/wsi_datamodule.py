@@ -21,6 +21,7 @@ class WholeSlideDataModule(LightningDataModule):
             steps_per_epoch: int = 1000,
             val_steps_per_epoch: int = 200,
             num_workers: int = 0,
+            return_info: bool = False,
             pin_memory: bool = False,
             context: str = "fork",
     ):
@@ -56,7 +57,8 @@ class WholeSlideDataModule(LightningDataModule):
                 num_workers=self.hparams.num_workers,
                 steps=self.hparams.steps_per_epoch,
                 exec_mode="training",
-                context=self.hparams.context
+                context=self.hparams.context,
+                return_info=self.hparams.return_info
             )
             self.data_train = WholeSlideDataset(**dataset_kwargs)
 
