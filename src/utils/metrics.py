@@ -24,7 +24,8 @@ class Dice(Metric):
         self.num_classes = num_classes
         self.dice_metric = DiceMetric(include_background=not ignore_first_channel)
         self.add_state("steps", default=torch.zeros(1), dist_reduce_fx="sum")
-        self.add_state("dice", default=torch.zeros((num_classes,)), dist_reduce_fx="sum")
+        self.add_state("dice", default=torch.zeros((num_classes - 1 if ignore_first_channel else num_classes,)),
+                       dist_reduce_fx="sum")
 
     def update(self, predictions, targets):
         predictions, targets = self.ohe(torch.argmax(predictions, dim=1)), self.ohe(torch.argmax(targets, dim=1))

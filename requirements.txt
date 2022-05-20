@@ -15,11 +15,11 @@ wholeslidedata>=0.0.13
 albumentations>=1.1.0
 
 # --------- loggers --------- #
-# wandb
+wandb
 # neptune-client
 # mlflow
 # comet-ml
-# tensorboard
+tensorboard
 
 # --------- linters --------- #
 pre-commit      # hooks for applying linters on commit
