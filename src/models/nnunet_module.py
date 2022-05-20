@@ -80,7 +80,7 @@ class NNUnetModule(pl.LightningModule):
         return self.loss(preds, label)
 
     def step(self, batch):
-        patches, targets = batch
+        patches, targets = batch[0].permute(0, 3, 1, 2), batch[1].permute(0, 3, 1, 2)
         predictions = self.model(patches)
         loss = self.compute_loss(predictions, targets)
         return loss, predictions, targets

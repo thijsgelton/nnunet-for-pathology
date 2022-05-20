@@ -35,8 +35,8 @@ class WholeSlideDataset(Dataset):
         else:
             x_batch, y_batch = next(self.iterator)
 
-        x_batch = x_batch.transpose(0, 3, 1, 2).astype('float32')
-        y_batch = y_batch.transpose(0, 3, 1, 2).astype('int8')
+        x_batch = x_batch.astype('float32')
+        y_batch = y_batch.astype('int8')
 
         if self.return_info:
             return torch.from_numpy(x_batch), torch.from_numpy(y_batch), info
