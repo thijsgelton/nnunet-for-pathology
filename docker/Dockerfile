@@ -1,6 +1,7 @@
 FROM doduo1.umcn.nl/uokbaseimage/diag:tf2.8-pt1.10-v1
 
 ENV CONDA_ENV_NAME=nnunet_pathology
+ENV CODE_DIRECTORY=/home/user/code/nnunet_pathology
 ENV PYTHON_VERSION=3.8
 
 # Fix: public key error for apt update
@@ -21,12 +22,14 @@ RUN apt install -y bash \
     wget \
     && rm -rf /var/lib/apt/lists
 
+
 # Copy source
-COPY . /home/user/code/nnunet_pathology
+COPY . ${CODE_DIRECTORY}
 
 # Set working directory
-WORKDIR /home/user/code/nnunet_pathology
+WORKDIR ${CODE_DIRECTORY}
 
+RUN chown -R user:user ${CODE_DIRECTORY}
 
 # Install Miniconda and create main env
 ADD https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh miniconda3.sh
