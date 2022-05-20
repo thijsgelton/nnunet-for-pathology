@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 from wholeslidedata.iterators import create_batch_iterator
 
 
-class WsiDataset(Dataset):
+class WholeSlideDataset(Dataset):
 
     def __init__(self, user_config, exec_mode, num_workers, steps, return_info=False, context="fork"):
         """
@@ -19,6 +19,7 @@ class WsiDataset(Dataset):
             context:
         """
         self.steps = steps
+        self.return_info = return_info
         self.iterator = create_batch_iterator(user_config=user_config,
                                               mode=exec_mode,
                                               cpus=num_workers,
@@ -29,7 +30,14 @@ class WsiDataset(Dataset):
         return self.steps
 
     def __getitem__(self, index):
-        x_batch, y_batch = next(self.iterator)
+        if self.return_info:
+            x_batch, y_batch, info = next(self.iterator)
+        else:
+            x_batch, y_batch = next(self.iterator)
+
         x_batch = x_batch.transpose(0, 3, 1, 2).astype('float32')
         y_batch = y_batch.transpose(0, 3, 1, 2).astype('int8')
+
+        if self.return_info:
+            return torch.from_numpy(x_batch), torch.from_numpy(y_batch), info
         return torch.from_numpy(x_batch), torch.from_numpy(y_batch)
