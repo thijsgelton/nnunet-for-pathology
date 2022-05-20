@@ -3,7 +3,7 @@ from typing import Optional
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset
 
-from src.datamodules.datasets.wsi_dataset import WsiDataset
+from src.datamodules.datasets.wsi_dataset import WholeSlideDataset
 
 
 class WholeSlideDataModule(LightningDataModule):
@@ -58,12 +58,12 @@ class WholeSlideDataModule(LightningDataModule):
                 exec_mode="training",
                 context=self.hparams.context
             )
-            self.data_train = WsiDataset(**dataset_kwargs)
+            self.data_train = WholeSlideDataset(**dataset_kwargs)
 
             dataset_kwargs['exec_mode'] = "validation"
             dataset_kwargs['steps'] = self.hparams.val_steps_per_epoch
             dataset_kwargs['user_config'] = self.hparams.user_val_config
-            self.data_val = WsiDataset(**dataset_kwargs)
+            self.data_val = WholeSlideDataset(**dataset_kwargs)
 
     def train_dataloader(self):
         return DataLoader(
