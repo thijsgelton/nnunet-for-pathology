@@ -67,10 +67,19 @@ class WholeSlideDataModule(LightningDataModule):
             dataset_kwargs['user_config'] = self.hparams.user_val_config
             self.data_val = WholeSlideDataset(**dataset_kwargs)
 
+    def transfer_batch_to_device(self, batch, device, dataloader_idx):
+        if self.hparams.return_info:
+            batch[0] = batch[0].to(device)
+            batch[1] = batch[1].to(device)
+        else:
+            batch = super().transfer_batch_to_device(batch, device, dataloader_idx)
+        return batch
+
     def train_dataloader(self):
         return DataLoader(
             dataset=self.data_train,
-            collate_fn=lambda x: x[0],  # WSD provides batches and DataLoader wraps it. Therefore, unpacking is needed.
+            collate_fn=lambda x: x[0],
+            # WSD provides batches and DataLoader wraps it. Therefore, unpacking is needed.
             pin_memory=self.hparams.pin_memory,
             num_workers=0
         )
