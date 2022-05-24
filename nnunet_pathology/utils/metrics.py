@@ -28,7 +28,8 @@ class Dice(Metric):
                        dist_reduce_fx="sum")
 
     def update(self, predictions, targets):
-        predictions, targets = self.ohe(torch.argmax(predictions, dim=1)), self.ohe(torch.argmax(targets, dim=1))
+        predictions, targets = self.ohe(torch.argmax(predictions.detach(), dim=1)),\
+                               self.ohe(torch.argmax(targets.detach(), dim=1))
         self.steps += 1
         self.dice += torch.mean(torch.nan_to_num(self.dice_metric(predictions, targets), nan=0),
                                 dim=0)  # Take mean over batch

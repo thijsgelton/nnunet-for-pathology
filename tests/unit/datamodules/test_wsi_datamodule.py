@@ -55,7 +55,8 @@ def test_wsi_datamodule(download):
         user_val_config="test_files/user_config.yml",
         user_test_config="test_files/user_config.yml",
         context="spawn" if _IS_WINDOWS else "fork",
-        num_workers=6
+        num_workers=6,
+        num_classes=3
     )
 
     assert not datamodule.data_train and not datamodule.data_val and not datamodule.data_test
@@ -64,7 +65,7 @@ def test_wsi_datamodule(download):
 
     assert datamodule.data_train and datamodule.data_val
     assert (
-            len(datamodule.data_train) + len(datamodule.data_val) == 2000
+            len(datamodule.data_train) + len(datamodule.data_val) == 1200
     )
 
     assert datamodule.train_dataloader()
