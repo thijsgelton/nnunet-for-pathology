@@ -15,7 +15,7 @@ from pytorch_lightning import (
 )
 from pytorch_lightning.loggers import LightningLoggerBase
 
-from src import utils
+from nnunet_pathology import utils
 
 log = utils.get_logger(__name__)
 warnings.filterwarnings("ignore", category=PossibleUserWarning)

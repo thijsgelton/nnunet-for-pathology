@@ -1,4 +1,4 @@
-_target_: src.datamodules.wsi_datamodule.WholeSlideDataModule
+_target_: nnunet_pathology.datamodules.wsi_datamodule.WholeSlideDataModule
 
 steps_per_epoch: 1000
 val_steps_per_epoch: 200

@@ -3,7 +3,7 @@ from typing import Optional
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset
 
-from src.datamodules.datasets.wsi_dataset import WholeSlideDataset
+from nnunet_pathology.datamodules.datasets.wsi_dataset import WholeSlideDataset
 
 
 class WholeSlideDataModule(LightningDataModule):

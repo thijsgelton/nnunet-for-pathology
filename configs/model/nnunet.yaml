@@ -1,4 +1,4 @@
-_target_: src.models.nnunet_module.NNUnetModule
+_target_: nnunet_pathology.models.nnunet_module.NNUnetModule
 
 exec_mode: "training"
 

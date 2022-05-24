@@ -492,11 +492,11 @@ don't hesitate to share it. Suggestions for new best practices are always welcom
 All PyTorch Lightning modules are dynamically instantiated from module paths specified in config. Example model config:
 
 ```yaml
-_target_: src.models.mnist_model.MNISTLitModule
+_target_: nnunet_pathology.models.mnist_model.MNISTLitModule
 lr: 0.001
 
 net:
-  _target_: src.models.components.simple_dense_net.SimpleDenseNet
+  _target_: nnunet_pathology.models.components.simple_dense_net.SimpleDenseNet
   input_size: 784
   lin1_size: 256
   lin2_size: 256
@@ -519,7 +519,7 @@ Switch between models and datamodules with command line arguments:
 python train.py model=mnist
 ```
 
-The whole pipeline managing the instantiation logic is placed in [src/training_pipeline.py](src/training_pipeline.py).
+The whole pipeline managing the instantiation logic is placed in [src/training_pipeline.py](nnunet_pathology/training_pipeline.py).
 
 <br>
 
@@ -681,8 +681,8 @@ hydra:
 
 ### Workflow
 
-1. Write your PyTorch Lightning module (see [models/mnist_module.py](src/models/mnist_module.py) for example)
-2. Write your PyTorch Lightning datamodule (see [datamodules/mnist_datamodule.py](src/datamodules/mnist_datamodule.py)
+1. Write your PyTorch Lightning module (see [models/mnist_module.py](nnunet_pathology/models/mnist_module.py) for example)
+2. Write your PyTorch Lightning datamodule (see [datamodules/mnist_datamodule.py](nnunet_pathology/datamodules/mnist_datamodule.py)
    for example)
 3. Write your experiment config, containing paths to your model and datamodule
 4. Run training with chosen experiment config: `python train.py experiment=experiment_name`
@@ -746,7 +746,7 @@ You can also write your own logger.
 
 Lightning provides convenient method for logging custom metrics from inside LightningModule. Read the
 docs [here](https://pytorch-lightning.readthedocs.io/en/latest/extensions/logging.html#automatic-logging) or take a look
-at [MNIST example](src/models/mnist_module.py).
+at [MNIST example](nnunet_pathology/models/mnist_module.py).
 
 <br>
 
@@ -842,7 +842,7 @@ The following code is an example of loading model from checkpoint and running pr
 from PIL import Image
 from torchvision import transforms
 
-from src.models.mnist_module import MNISTLitModule
+from nnunet_pathology.models.mnist_module import MNISTLitModule
 
 
 def predict():
@@ -1047,7 +1047,7 @@ The `config.yaml` from `.hydra` folder contains all overriden parameters and sec
 1. The simplest way is to pass datamodule attribute directly to model on initialization:
 
    ```python
-   # ./src/training_pipeline.py
+   # ./nnunet_pathology/training_pipeline.py
    datamodule = hydra.utils.instantiate(config.datamodule)
    model = hydra.utils.instantiate(config.model, some_param=datamodule.some_param)
    ```
@@ -1058,14 +1058,14 @@ The `config.yaml` from `.hydra` folder contains all overriden parameters and sec
 2. If you only want to access datamodule config, you can simply pass it as an init parameter:
 
    ```python
-   # ./src/training_pipeline.py
+   # ./nnunet_pathology/training_pipeline.py
    model = hydra.utils.instantiate(config.model, dm_conf=config.datamodule, _recursive_=False)
    ```
 
    Now you can access any datamodule config part like this:
 
    ```python
-   # ./src/models/my_model.py
+   # ./nnunet_pathology/models/my_model.py
    class MyLitModel(LightningModule):
    	def __init__(self, dm_conf, param1, param2):
    		super().__init__()
@@ -1077,7 +1077,7 @@ The `config.yaml` from `.hydra` folder contains all overriden parameters and sec
    datamodule:
 
    ```python
-   # ./src/datamodules/my_datamodule.py
+   # ./nnunet_pathology/datamodules/my_datamodule.py
    from omegaconf import OmegaConf
 
    class MyDataModule(LightningDataModule):
@@ -1104,11 +1104,11 @@ The `config.yaml` from `.hydra` folder contains all overriden parameters and sec
    When later accessing this field, say in your lightning model, it will get automatically resolved based on all
    resolvers that are registered. Remember not to access this field before datamodule is initialized or it will crash.
 
-   **You also need to set `resolve=False` in `print_config(...)` in [utils](src/urils/__init__.py) to prevent config
+   **You also need to set `resolve=False` in `print_config(...)` in [utils](nnunet_pathology/urils/__init__.py) to prevent config
    printing from accessing the parameter before datamodule is initialized:**
 
    ```python
-   # ./src/urils/__init__.py
+   # ./nnunet_pathology/urils/__init__.py
     def extras(config: DictConfig) -> None:
 
       ...
@@ -1402,7 +1402,7 @@ Change name of the `src` folder to your project name and add `setup.py` file:
 from setuptools import find_packages, setup
 
 setup(
-    name="src",  # change "src" folder name to your project name
+    name="nnunet_pathology",  # change "nnunet_pathology" folder name to your project name
     version="0.0.0",
     description="Describe Your Cool Project",
     author="...",
@@ -1441,7 +1441,7 @@ from project_name.datamodules.mnist_datamodule import MNISTDataModule
 <!-- <details>
 <summary><b>Make notebooks independent from other files</b></summary>
 
-It's a good practice for jupyter notebooks to be portable. Try to make them independent from src files. If you need to access external code, try to embed it inside the notebook.
+It's a good practice for jupyter notebooks to be portable. Try to make them independent from nnunet_pathology files. If you need to access external code, try to embed it inside the notebook.
 
 </details> -->
 

@@ -12,8 +12,8 @@ def main(config: DictConfig):
 
     # Imports can be nested inside @hydra.main to optimize tab completion
     # https://github.com/facebookresearch/hydra/issues/934
-    from src import utils
-    from src.testing_pipeline import test
+    from nnunet_pathology import utils
+    from nnunet_pathology.testing_pipeline import test
 
     # Applies optional utilities
     utils.extras(config)

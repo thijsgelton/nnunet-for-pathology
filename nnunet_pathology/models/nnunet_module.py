@@ -21,9 +21,9 @@ from monai.optimizers.lr_scheduler import WarmupCosineSchedule
 from torch.optim import SGD, Adam
 from torchmetrics import MaxMetric
 
-from src.utils.losses import LossFactory
-from src.utils.metrics import Dice
-from src.utils.utils import print0
+from nnunet_pathology.utils.losses import LossFactory
+from nnunet_pathology.utils.metrics import Dice
+from nnunet_pathology.utils.utils import print0
 
 
 class NNUnetModule(pl.LightningModule):
