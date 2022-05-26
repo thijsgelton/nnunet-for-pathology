@@ -19,7 +19,7 @@ import torch
 from monai.networks.nets import DynUNet
 from monai.optimizers.lr_scheduler import WarmupCosineSchedule
 from torch.optim import SGD, Adam
-from torchmetrics import MaxMetric
+from torchmetrics import MaxMetric, F1Score
 
 from nnunet_pathology.utils.losses import LossFactory
 from nnunet_pathology.utils.metrics import Dice
@@ -47,16 +47,17 @@ class NNUnetModule(pl.LightningModule):
         self.save_hyperparameters(logger=False)
         self.model = None
         self.build_nnunet()
-        self.best_mean, self.best_epoch, self.test_idx = (0,) * 3
-        self.start_benchmark = 0
-        self.test_images = []
         self.loss = LossFactory(ignore_first_channel=self.hparams.ignore_first_channel,
                                 focal=self.hparams.use_focal_loss)
         # TODO: Make what loss configurable, using factory method (not only CE or focal).
         self.tta_flips = [[2], [3], [2, 3]]
         self.train_dice = Dice(self.hparams.num_classes, ignore_first_channel=self.hparams.ignore_first_channel)
+        # self.train_dice = F1Score(self.hparams.num_classes, average="macro", mdmc_average='samplewise',
+        #                           ignore_index=0 if self.hparams.ignore_first_channel else None)
         # TODO: make this configurable
         self.val_dice = Dice(self.hparams.num_classes, ignore_first_channel=self.hparams.ignore_first_channel)
+        # self.val_dice = F1Score(self.hparams.num_classes, average="macro", mdmc_average='samplewise',
+        #                         ignore_index=0 if self.hparams.ignore_first_channel else None)
         # TODO: make this configurable
         self.val_best_dice = MaxMetric()
         # TODO: make this configurable
@@ -64,8 +65,9 @@ class NNUnetModule(pl.LightningModule):
     def on_train_start(self) -> None:
         self.val_best_dice.reset()
 
-    def forward(self, img):
-        return torch.argmax(self.model(img), dim=1)  # TODO: see if this is the correct dimension the argmax is used on.
+    def on_validation_start(self) -> None:
+        self.model.eval()
+        self.model.train(False)
 
     def _forward(self, img):
         return self.tta_inference(img) if self.hparams.use_tta else self.do_inference(img)
@@ -79,43 +81,35 @@ class NNUnetModule(pl.LightningModule):
             return loss / weights
         return self.loss(preds, label)
 
-    def step(self, batch):
+    def training_step(self, batch, batch_idx):
         patches, targets = batch[0].permute(0, 3, 1, 2), batch[1].permute(0, 3, 1, 2)
         predictions = self.model(patches)
         loss = self.compute_loss(predictions, targets)
-        return loss, predictions, targets
-
-    def training_step(self, batch, batch_idx):
-        loss, predictions, targets = self.step(batch)
         predictions = predictions[:, 0]  # Full-scale output, no deep supervision head.
-        self.log("train/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
-        return {"loss": loss, "predictions": predictions, "targets": targets}
 
-    def training_step_end(self, outputs):
-        loss, predictions, targets = outputs.values()
         train_dice = self.train_dice(predictions, targets)
+        self.log("train/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
         self.log("train/dice", train_dice, on_step=False, on_epoch=True, prog_bar=True)
+        return {"loss": loss}
 
     def validation_step(self, batch, batch_idx):
-        loss, predictions, targets = self.step(batch)
+        patches, targets = batch[0].permute(0, 3, 1, 2), batch[1].permute(0, 3, 1, 2)
+        predictions = self._forward(patches)
+        loss = self.loss(predictions, targets)
+        val_dice = self.val_dice(predictions, targets)
 
         self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
-        return {"loss": loss, "preds": predictions, "targets": targets}
-
-    def validation_step_end(self, outputs):
-        loss, predictions, targets = outputs.values()
-        # log val metrics
-        val_dice = self.val_dice(predictions, targets)
         self.log("val/dice", val_dice, on_step=False, on_epoch=True, prog_bar=True)
+        return {"loss": loss}
 
     def validation_epoch_end(self, outputs):
         val_dice = self.val_dice.compute()  # get val dice from current epoch
-        val_best_dice = self.val_best_dice(val_dice)
+        self.val_best_dice.update(torch.mean(val_dice))
 
         if self.hparams.num_classes > 1:
-            for i in range(self.hparams.num_classes - 1 if self.hparams.ignore_first_channel else 0):
+            for i in range(self.hparams.num_classes - (1 if self.hparams.ignore_first_channel else 0)):
                 self.log(f"val/dice_class_{i}", val_dice[i], on_epoch=True, prog_bar=False)
-        self.log("val/dice_best", val_best_dice, on_epoch=True, prog_bar=True)
+        self.log("val/dice_best", self.val_best_dice.compute(), on_epoch=True, prog_bar=True)
         self.log("val/dice", torch.mean(val_dice), on_epoch=True, prog_bar=True)
         self.val_dice.reset()
 
