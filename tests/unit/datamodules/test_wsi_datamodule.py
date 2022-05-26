@@ -5,6 +5,7 @@ import gdown
 import pytest
 import torch
 import yaml
+import matplotlib.pyplot as plt
 
 from datamodules.wsi_datamodule import WholeSlideDataModule
 from tests.helpers.module_available import _IS_WINDOWS
@@ -78,3 +79,10 @@ def test_wsi_datamodule(download):
     assert len(y) == wsd_config['wholeslidedata']['default']['batch_shape']['batch_size']
     assert x.dtype == torch.float32
     assert y.dtype == torch.int8
+
+    fig, axs = plt.subplots(2, 2, figsize=(20, 20))
+    axs[0][0].imshow(x[0][0].numpy().astype(int))
+    axs[0][1].imshow(x[0][1].numpy().astype(int))
+    axs[1][0].imshow(y[0][0].numpy().astype(int).argmax(axis=-1))
+    axs[1][1].imshow(y[0][1].numpy().astype(int).argmax(axis=-1))
+    plt.show()
