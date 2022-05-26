@@ -62,6 +62,16 @@ class NNUnetModule(pl.LightningModule):
         self.val_best_dice = MaxMetric()
         # TODO: make this configurable
 
+    def on_fit_start(self) -> None:
+        hparams = {"datamodule": {
+            "train": {
+                "annotations_per_label_per_key": self.trainer.datamodule.data_train.iterator.dataset.annotations_per_label_per_key
+            },
+            "validation": {
+                "annotations_per_label_per_key": self.trainer.datamodule.data_val.iterator.dataset.annotations_per_label_per_key}
+        }}
+        self.trainer.logger.log_hyperparams(hparams)
+
     def on_train_start(self) -> None:
         self.val_best_dice.reset()
 

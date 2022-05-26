@@ -17,13 +17,13 @@ def get_logger(name=__name__) -> logging.Logger:
     # this ensures all logging levels get marked with the rank zero decorator
     # otherwise logs would get multiplied for each GPU process in multi-GPU setup
     for level in (
-        "debug",
-        "info",
-        "warning",
-        "error",
-        "exception",
-        "fatal",
-        "critical",
+            "debug",
+            "info",
+            "warning",
+            "error",
+            "exception",
+            "fatal",
+            "critical",
     ):
         setattr(logger, level, rank_zero_only(getattr(logger, level)))
 
@@ -54,15 +54,15 @@ def extras(config: DictConfig) -> None:
 
 @rank_zero_only
 def print_config(
-    config: DictConfig,
-    print_order: Sequence[str] = (
-        "datamodule",
-        "model",
-        "callbacks",
-        "logger",
-        "trainer",
-    ),
-    resolve: bool = True,
+        config: DictConfig,
+        print_order: Sequence[str] = (
+                "datamodule",
+                "model",
+                "callbacks",
+                "logger",
+                "trainer",
+        ),
+        resolve: bool = True,
 ) -> None:
     """Prints content of DictConfig using Rich library and its tree structure.
 
@@ -103,12 +103,12 @@ def print_config(
 
 @rank_zero_only
 def log_hyperparameters(
-    config: DictConfig,
-    model: pl.LightningModule,
-    datamodule: pl.LightningDataModule,
-    trainer: pl.Trainer,
-    callbacks: List[pl.Callback],
-    logger: List[pl.loggers.LightningLoggerBase],
+        config: DictConfig,
+        model: pl.LightningModule,
+        datamodule: pl.LightningDataModule,
+        trainer: pl.Trainer,
+        callbacks: List[pl.Callback],
+        logger: List[pl.loggers.LightningLoggerBase],
 ) -> None:
     """Controls which config parts are saved by Lightning loggers.
 
@@ -133,7 +133,8 @@ def log_hyperparameters(
         p.numel() for p in model.parameters() if not p.requires_grad
     )
 
-    hparams["datamodule"] = config["datamodule"]
+    hparams["datamodule"] = {"config": config["datamodule"]}
+
     hparams["trainer"] = config["trainer"]
 
     if "seed" in config:
@@ -146,12 +147,12 @@ def log_hyperparameters(
 
 
 def finish(
-    config: DictConfig,
-    model: pl.LightningModule,
-    datamodule: pl.LightningDataModule,
-    trainer: pl.Trainer,
-    callbacks: List[pl.Callback],
-    logger: List[pl.loggers.LightningLoggerBase],
+        config: DictConfig,
+        model: pl.LightningModule,
+        datamodule: pl.LightningDataModule,
+        trainer: pl.Trainer,
+        callbacks: List[pl.Callback],
+        logger: List[pl.loggers.LightningLoggerBase],
 ) -> None:
     """Makes sure everything closed properly."""
 
