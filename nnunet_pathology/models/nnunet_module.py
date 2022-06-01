@@ -30,8 +30,8 @@ class NNUnetModule(pl.LightningModule):
     def __init__(self, patch_size, spacings, exec_mode: str, deep_supervision: bool, deep_supr_num: int,
                  momentum: float, weight_decay: float, use_res_block: bool, use_tta: bool,
                  learning_rate: float, optimizer: str, use_focal_loss: bool, depth: int, num_classes: int,
-                 steps: int, ignore_first_channel: bool, use_cosine_scheduler: bool = False, filters: List[int] = None,
-                 in_channels: int = 3, min_fmap: int = 4):
+                 steps: int, ignore_first_channel: bool, cosine_cycles: float = 100, use_cosine_scheduler: bool = False,
+                 filters: List[int] = None, in_channels: int = 3, min_fmap: int = 4):
         """
 
         Args:
@@ -208,8 +208,9 @@ class NNUnetModule(pl.LightningModule):
             scheduler = {
                 "scheduler": WarmupCosineSchedule(
                     optimizer=optimizer,
-                    warmup_steps=int(self.hparams.steps * 1/8),
+                    warmup_steps=int(self.hparams.steps * 1 / 8),
                     t_total=self.trainer.max_epochs * self.hparams.steps,
+                    cycles=self.hparams.cosine_cycles
                 ),
                 "interval": "step",
                 "frequency": 1,
