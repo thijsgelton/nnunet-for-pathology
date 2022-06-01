@@ -208,7 +208,7 @@ class NNUnetModule(pl.LightningModule):
             scheduler = {
                 "scheduler": WarmupCosineSchedule(
                     optimizer=optimizer,
-                    warmup_steps=250,
+                    warmup_steps=int(self.hparams.steps * 1/8),
                     t_total=self.trainer.max_epochs * self.hparams.steps,
                 ),
                 "interval": "step",
