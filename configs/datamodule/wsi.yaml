@@ -2,14 +2,13 @@ _target_: nnunet_pathology.datamodules.wsi_datamodule.WholeSlideDataModule
 
 steps_per_epoch: 1000
 val_steps_per_epoch: 200
-num_classes: 3
+num_classes: 4
 num_workers: 3
 pin_memory: True
 context: spawn
+return_info: True
 
 user_train_config: ${original_work_dir}/configs/wsd_configs/user_config.yml
 # Temporary solution for using WholeSlideData. This should be ported to Hydra.
 user_val_config: ${original_work_dir}/configs/wsd_configs/user_config.yml
-# Temporary solution for using WholeSlideData. This should be ported to Hydra.
-user_test_config: ${original_work_dir}/configs/wsd_configs/user_config.yml
 # Temporary solution for using WholeSlideData. This should be ported to Hydra.
