@@ -17,7 +17,6 @@ class WholeSlideDataModule(LightningDataModule):
             self,
             user_train_config,
             user_val_config,
-            user_test_config,
             num_classes,
             norm_mean: list = None,
             norm_std: list = None,
@@ -54,7 +53,7 @@ class WholeSlideDataModule(LightningDataModule):
         """
 
         # load datasets only if they're not loaded already
-        if not self.data_train and not self.data_val and not self.data_test:
+        if not self.data_train and not self.data_val:
             dataset_kwargs = dict(
                 user_config=self.hparams.user_train_config,
                 num_workers=self.hparams.num_workers,
