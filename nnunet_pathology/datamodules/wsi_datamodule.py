@@ -1,5 +1,6 @@
 from typing import Optional
 
+import numpy as np
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset
 
@@ -18,6 +19,8 @@ class WholeSlideDataModule(LightningDataModule):
             user_val_config,
             user_test_config,
             num_classes,
+            norm_mean: list = None,
+            norm_std: list = None,
             steps_per_epoch: int = 1000,
             val_steps_per_epoch: int = 200,
             num_workers: int = 0,
@@ -58,6 +61,8 @@ class WholeSlideDataModule(LightningDataModule):
                 steps=self.hparams.steps_per_epoch,
                 exec_mode="training",
                 context=self.hparams.context,
+                norm_mean=np.array(self.hparams.norm_mean) if self.hparams.norm_mean else None,
+                norm_std=np.array(self.hparams.norm_std) if self.hparams.norm_std else None,
                 return_info=self.hparams.return_info
             )
             self.data_train = WholeSlideDataset(**dataset_kwargs)
