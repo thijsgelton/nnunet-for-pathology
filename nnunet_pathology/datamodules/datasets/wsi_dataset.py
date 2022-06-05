@@ -39,11 +39,11 @@ class WholeSlideDataset(Dataset):
         else:
             x_batch, y_batch = next(self.iterator)
 
-        x_batch = x_batch.astype('float32')
-        y_batch = y_batch.astype('int8')
-
         if isinstance(self.norm_mean, np.ndarray) and self.norm_mean.any():
             x_batch = (x_batch - self.norm_mean) / self.norm_std
+
+        x_batch = x_batch.astype('float32')
+        y_batch = y_batch.astype('int8')
 
         if self.return_info:
             return torch.from_numpy(x_batch), torch.from_numpy(y_batch), info
